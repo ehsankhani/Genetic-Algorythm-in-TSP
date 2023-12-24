@@ -134,7 +134,7 @@ root = Tk()
 root.title("Genetic Algorithm for TSP")
 
 # Load and resize the background image
-bg_image = Image.open("tesst.jpg")  # Replace "background_image.jpg" with the path to your image
+bg_image = Image.open("background.jpg")
 bg_image = bg_image.resize((1550, 872))  # Adjust the size as needed
 background_image = ImageTk.PhotoImage(bg_image)
 
