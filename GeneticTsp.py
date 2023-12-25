@@ -4,9 +4,11 @@ from tkinter import *
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image, ImageTk
 
+# Function to calculate Euclidean distance between two cities
 def distance(city1, city2):
     return np.sqrt((city1[0] - city2[0]) ** 2 + (city1[1] - city2[1]) ** 2)
 
+# Function to calculate total distance of a tour
 def tour_distance(tour, cities):
     total_distance = 0
     for i in range(len(tour) - 1):
@@ -14,39 +16,59 @@ def tour_distance(tour, cities):
     total_distance += distance(cities[tour[-1]], cities[tour[0]])
     return total_distance
 
+# Function to initialize a population of TSP tours
 def initialize_population(population_size, num_cities):
     return [np.random.permutation(range(num_cities)) for _ in range(population_size)]
 
+# Function for tournament selection to choose parents for reproduction
 def tournament_selection(population, fitness, team_size):
     selected_indices = np.random.choice(len(population), size=team_size, replace=False)
     tournament_fitness = [fitness[i] for i in selected_indices]
     return selected_indices[np.argmin(tournament_fitness)]
 
+# Function for crossover to create two new individuals from two parents
 def crossover(parent1, parent2):
     start, end = np.sort(np.random.choice(len(parent1), size=2, replace=False))
-    child = [-1] * len(parent1)
-    child[start:end + 1] = parent1[start:end + 1]
-    remaining_indices = [i for i in range(len(parent1)) if parent2[i] not in child]
-    remaining_values = [parent2[i] for i in range(len(parent1)) if parent2[i] not in child]
-    for i in range(len(child)):
-        if child[i] == -1:
-            child[i] = remaining_values.pop(0)
-    return child
+    child1, child2 = [-1] * len(parent1), [-1] * len(parent1)
 
+    child1[start:end + 1] = parent1[start:end + 1]
+    child2[start:end + 1] = parent2[start:end + 1]
+
+    remaining_indices = [i for i in range(len(parent1)) if parent2[i] not in child1]
+    remaining_values = [parent2[i] for i in range(len(parent1)) if parent2[i] not in child1]
+
+    for i in range(len(child1)):
+        if child1[i] == -1:
+            child1[i] = remaining_values.pop(0)
+
+    remaining_indices = [i for i in range(len(parent1)) if parent1[i] not in child2]
+    remaining_values = [parent1[i] for i in range(len(parent1)) if parent1[i] not in child2]
+
+    for i in range(len(child2)):
+        if child2[i] == -1:
+            child2[i] = remaining_values.pop(0)
+
+    return child1, child2
+
+# Function for mutation to introduce random changes to an individual
 def mutate(individual):
     idx1, idx2 = np.random.choice(len(individual), size=2, replace=False)
     individual[idx1], individual[idx2] = individual[idx2], individual[idx1]
     return individual
 
+# Main genetic algorithm function
 def genetic_algorithm(num_cities, population_size, team_size, crossover_rate, mutation_rate, elitism_rate, num_generations, output_text, canvas_frame):
-    cities = np.random.randint(1, 11, size=(num_cities, 2))  # Use whole numbers between 1 and 10 for coordinates
-    city_names = [str(i) for i in range(1, num_cities + 1)]  # Use integers for city names
+    # Generate random city coordinates
+    cities = np.random.randint(1, 11, size=(num_cities, 2))
+    city_names = [str(i) for i in range(1, num_cities + 1)]
 
+    # Initialize the population of TSP tours
     population = initialize_population(population_size, num_cities)
 
     best_fitness_history = []
     avg_fitness_history = []
 
+    # Main loop for generations
     for generation in range(num_generations):
         # Calculate fitness as the inverse of tour distance
         fitness = [1 / tour_distance(ind, cities) for ind in population]
@@ -56,28 +78,37 @@ def genetic_algorithm(num_cities, population_size, team_size, crossover_rate, mu
         best_fitness_history.append(best_fitness)
         avg_fitness_history.append(avg_fitness)
 
+        # Determine the number of elites to be preserved
         num_elites = int(elitism_rate * population_size)
         elite_indices = np.argsort(fitness)[-num_elites:]
         elites = [population[i] for i in elite_indices]
 
+        # Create a new population with elites
         new_population = elites.copy()
 
+        # Generate new individuals for the remaining population
         while len(new_population) < population_size:
             parent1_idx = tournament_selection(population, fitness, team_size)
             parent2_idx = tournament_selection(population, fitness, team_size)
 
+            # Perform crossover if a random number is less than the crossover rate
             if np.random.rand() < crossover_rate:
-                child = crossover(population[parent1_idx], population[parent2_idx])
+                child1, child2 = crossover(population[parent1_idx], population[parent2_idx])
             else:
-                child = population[parent1_idx].copy()  # Ensure the parent remains unchanged
+                child1, child2 = population[parent1_idx].copy(), population[parent2_idx].copy()
 
+            # Perform mutation if a random number is less than the mutation rate
             if np.random.rand() < mutation_rate:
-                child = mutate(child)
+                child1 = mutate(child1)
+                child2 = mutate(child2)
 
-            new_population.append(child)
+            # Add the new individuals to the new population
+            new_population.extend([child1, child2])
 
+        # Update the population for the next generation
         population = new_population
 
+    # Final fitness calculation and identification of the best individual
     final_fitness = [1 / tour_distance(ind, cities) for ind in population]
     best_individual = population[np.argmax(final_fitness)]
     best_tour = [cities[i] for i in best_individual]
@@ -116,8 +147,9 @@ def genetic_algorithm(num_cities, population_size, team_size, crossover_rate, mu
 
     return best_tour
 
+# Function to start the genetic algorithm based on user input
 def generate(entry_num_cities, entry_population_size, entry_team_size, entry_crossover_rate, entry_mutation_rate, entry_elitism_rate, entry_num_generations, output_text, canvas_frame):
-    # Parameters
+    # Extract parameters from user input
     num_cities = int(entry_num_cities.get())
     population_size = int(entry_population_size.get())
     team_size = int(entry_team_size.get())
@@ -146,13 +178,13 @@ background_label.place(relwidth=1, relheight=1)
 label_num_cities = Label(root, text="Number of Cities:")
 label_num_cities.grid(row=0, column=0, padx=5, pady=5)
 entry_num_cities = Entry(root)
-entry_num_cities.insert(0,"10")
+entry_num_cities.insert(0, "10")
 entry_num_cities.grid(row=0, column=1, padx=5, pady=5)
 
 label_population_size = Label(root, text="Population Size:")
 label_population_size.grid(row=1, column=0, padx=5, pady=5)
 entry_population_size = Entry(root)
-entry_population_size.insert(0,"100")
+entry_population_size.insert(0, "100")
 entry_population_size.grid(row=1, column=1, padx=5, pady=5)
 
 label_team_size = Label(root, text="Team Size:")
@@ -182,7 +214,7 @@ entry_elitism_rate.grid(row=5, column=1, padx=5, pady=5)
 label_num_generations = Label(root, text="Number of Generations:")
 label_num_generations.grid(row=6, column=0, padx=5, pady=5)
 entry_num_generations = Entry(root)
-entry_num_generations.insert(0,"150")
+entry_num_generations.insert(0, "150")
 entry_num_generations.grid(row=6, column=1, padx=5, pady=5)
 
 # Output text widget
